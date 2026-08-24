@@ -59,7 +59,7 @@ export default function CheckoutPage() {
 
       const result = await openRazorpay({
         keyId: payment.keyId, amount: payment.amount, currency: payment.currency,
-        orderId: payment.razorpayOrderId, name: 'Sri Venkateshwara Textils',
+        orderId: payment.razorpayOrderId, name: 'Sri Venkateshwara Textiles',
         description: `Order ${order.orderNumber}`,
         prefill: { name: ship.name, contact: ship.phone, email: user?.email || undefined }
       })

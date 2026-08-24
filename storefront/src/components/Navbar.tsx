@@ -36,7 +36,7 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-2.5">
           <span className="grid place-items-center h-10 w-10 rounded-full bg-maroon text-gold font-serif text-xl font-bold">S</span>
           <span className="leading-tight">
-            <span className="block font-serif text-base md:text-lg font-bold uppercase tracking-tight text-maroon">Sri Venkateshwara Textils</span>
+            <span className="block font-serif text-base md:text-lg font-bold uppercase tracking-tight text-maroon">Sri Venkateshwara Textiles</span>
             <span className="block text-[10px] uppercase tracking-[0.2em] text-gold-dark">Kovilpatti</span>
           </span>
         </Link>

@@ -60,5 +60,15 @@ services:
       - key: OTP_PROVIDER
         value: console
 
+      # WhatsApp order alerts (customer bill + admin new-order alert).
+      # Leave unset = MOCK mode (messages printed to logs). To go LIVE, set the
+      # WhatsApp Cloud API token + phone-number id from Meta, and the admin's number.
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_ID
+        sync: false
+      - key: ADMIN_WHATSAPP
+        sync: false
+
       # Payments: leave Razorpay keys unset = MOCK mode (checkout auto-succeeds).
       # Add RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET in the dashboard to go live.

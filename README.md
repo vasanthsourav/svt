@@ -1,4 +1,4 @@
-# Sri Venkateshwara Textils — Online Shop
+# Sri Venkateshwara Textiles — Online Shop
 
 A professional e‑commerce website for the Kovilpatti textile shop, with a
 customer storefront and an admin portal.

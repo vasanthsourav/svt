@@ -173,7 +173,7 @@ export default function SuitUpPreview({ src, alt }: { src: string; alt?: string 
   }, [playing, runId])
 
   const shareLink = typeof window !== 'undefined' ? window.location.href : ''
-  const waHref = `https://wa.me/?text=${encodeURIComponent(`Loved this at Sri Venkateshwara Textils — ${shareLink}`)}`
+  const waHref = `https://wa.me/?text=${encodeURIComponent(`Loved this at Sri Venkateshwara Textiles — ${shareLink}`)}`
   const copyLink = () => { if (navigator.clipboard) navigator.clipboard.writeText(shareLink) }
 
   return (

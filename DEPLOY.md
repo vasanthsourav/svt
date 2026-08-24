@@ -1,4 +1,4 @@
-# Deploying Sri Venkateshwara Textils online shop
+# Deploying Sri Venkateshwara Textiles online shop
 
 The site + API run as **one Node server** (the API also serves the built
 storefront), so you only host **one thing**. Put HTTPS in front of it.

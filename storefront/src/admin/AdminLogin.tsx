@@ -27,7 +27,7 @@ export default function AdminLogin() {
         <div className="text-center mb-6">
           <span className="inline-grid place-items-center h-14 w-14 rounded-full bg-maroon text-gold font-serif text-2xl font-bold mb-3">S</span>
           <h1 className="text-2xl text-maroon">Admin Portal</h1>
-          <p className="text-sm text-stone-500">Sri Venkateshwara Textils</p>
+          <p className="text-sm text-stone-500">Sri Venkateshwara Textiles</p>
         </div>
         <div className="space-y-4">
           <div><label className="label">Email</label><input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>

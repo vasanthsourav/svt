@@ -2,7 +2,7 @@
   "name": "svt-shop-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Sri Venkateshwara Textils — online shop API (Express + Prisma + SQLite)",
+  "description": "Sri Venkateshwara Textiles — online shop API (Express + Prisma + SQLite)",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",

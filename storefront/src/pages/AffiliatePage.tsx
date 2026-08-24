@@ -123,7 +123,7 @@ export default function AffiliatePage() {
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <a className="btn-gold text-sm" target="_blank" rel="noreferrer"
-            href={`https://wa.me/?text=${encodeURIComponent(`Shop premium menswear at Sri Venkateshwara Textils — use my link: ${link}`)}`}>Share on WhatsApp</a>
+            href={`https://wa.me/?text=${encodeURIComponent(`Shop premium menswear at Sri Venkateshwara Textiles — use my link: ${link}`)}`}>Share on WhatsApp</a>
         </div>
       </div>
 

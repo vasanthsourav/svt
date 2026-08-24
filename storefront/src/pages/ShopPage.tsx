@@ -45,7 +45,7 @@ export default function ShopPage() {
     <div className="container-px py-12">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-5 mb-10">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}>
-          <p className="text-[11px] uppercase tracking-[0.3em] text-gold-dark mb-2">Sri Venkateshwara Textils</p>
+          <p className="text-[11px] uppercase tracking-[0.3em] text-gold-dark mb-2">Sri Venkateshwara Textiles</p>
           <h1 className="font-serif text-5xl md:text-7xl uppercase tracking-tight text-maroon leading-[0.9]">The Collection</h1>
           <p className="text-stone-500 mt-2">{loading ? 'Loading…' : `${products.length} piece${products.length === 1 ? '' : 's'}`}</p>
         </motion.div>

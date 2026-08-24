@@ -3,7 +3,7 @@
 // 👉 OWNER: update phone/email/hours below with your real details before going live
 //    (Razorpay activation checks that these match your business).
 export const SHOP = {
-  name: 'Sri Venkateshwara Textils',
+  name: 'Sri Venkateshwara Textiles',
   tagline: 'Premium Menswear & Family Textiles',
   addressLines: [
     'Nadar Middle School Road',

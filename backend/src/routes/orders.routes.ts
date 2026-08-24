@@ -6,6 +6,7 @@ import { serializeOrder } from '../serialize'
 import { createRazorpayOrder, verifyPaymentSignature, razorpayConfigured, razorpayKeyId } from '../services/razorpay.service'
 import { findReferrerByCode, effectiveCommissionPercent } from '../services/affiliate.service'
 import { getPlatformFeePercent } from '../services/platform.service'
+import { notifyOrderConfirmed } from '../services/notify.service'
 
 export const ordersRouter = Router()
 
@@ -126,7 +127,8 @@ ordersRouter.post('/', requireAuth, async (req, res) => {
 
 // Mark PAID, decrement stock (in a transaction).
 async function confirmAndFulfilStock(orderId: number, mode: string, paymentId?: string) {
-  return db.$transaction(async (tx) => {
+  let didConfirm = false
+  const result = await db.$transaction(async (tx) => {
     const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } })
     if (!order) throw new Error('Order not found')
     if (order.status !== 'PENDING') return tx.order.findUnique({ where: { id: orderId }, include: { items: true, user: true } })
@@ -137,6 +139,7 @@ async function confirmAndFulfilStock(orderId: number, mode: string, paymentId?: 
         await tx.product.update({ where: { id: it.productId }, data: { stock: { decrement: it.quantity } } })
       }
     }
+    didConfirm = true
     return tx.order.update({
       where: { id: orderId },
       data: {
@@ -149,6 +152,10 @@ async function confirmAndFulfilStock(orderId: number, mode: string, paymentId?: 
       include: { items: true, user: true }
     })
   })
+  // Only on the real PENDING→PAID transition (never on a repeat confirm), send the
+  // customer bill + admin alert on WhatsApp. Fire-and-forget: never blocks the order.
+  if (didConfirm && result) notifyOrderConfirmed(result).catch(() => {})
+  return result
 }
 
 // Confirm a Razorpay payment from the browser checkout callback.
