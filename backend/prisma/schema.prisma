@@ -1,0 +1,159 @@
+// SVT-Shop — SQLite schema. Money is stored in integer PAISE everywhere.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./svt-shop.db"
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  role          String   @default("CUSTOMER") // CUSTOMER | ADMIN
+  name          String?
+  email         String?  @unique
+  phone         String?  @unique
+  passwordHash  String?
+  createdAt     DateTime @default(now())
+  // Affiliate program
+  referralCode  String?  @unique
+  affiliateStatus  String?  // null = not an affiliate | PENDING | APPROVED | REJECTED
+  commissionPercent Int?    // per-affiliate rate override; null = use the global default
+  referralClicks   Int      @default(0) // total clicks on this affiliate's link
+  payoutMethod  String?  // UPI | BANK
+  payoutDetails String?  // UPI id or bank acc/IFSC text
+  orders         Order[]  @relation("BuyerOrders")
+  referredOrders Order[]  @relation("ReferredOrders")
+  payouts        Payout[]
+}
+
+// Simple key/value config (e.g. affiliate commission %).
+model Setting {
+  key   String @id
+  value String
+}
+
+// Affiliate cash-out request.
+model Payout {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  amountPaise Int
+  method      String
+  details     String
+  status      String    @default("REQUESTED") // REQUESTED | PAID | REJECTED
+  reference   String?
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+// One-time passwords for phone login (passwordless).
+model Otp {
+  id        Int      @id @default(autoincrement())
+  phone     String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String?
+  category    String   @default("OTHERS")
+  fabric      String?  // e.g. Cotton, Silk, Linen
+  pricePaise  Int      // selling price in paise
+  mrpPaise    Int?     // optional strike-through MRP
+  stock       Int      @default(0)
+  images      String   @default("[]") // JSON array of image URLs
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orderItems  OrderItem[]
+  sizes       ProductSize[]
+
+  @@index([category])
+}
+
+// Optional per-size stock. A product with NO sizes is "one size" and uses
+// Product.stock; a product WITH sizes tracks stock per size here.
+model ProductSize {
+  id        Int     @id @default(autoincrement())
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  label     String  // e.g. "M", "XL", "32"
+  stock     Int     @default(0)
+  sortOrder Int     @default(0)
+
+  @@unique([productId, label])
+  @@index([productId])
+}
+
+// Order lifecycle: PENDING -> PAID -> PACKED -> SHIPPED -> DELIVERED (or CANCELLED)
+model Order {
+  id               Int      @id @default(autoincrement())
+  orderNumber      String   @unique
+  userId           Int
+  user             User     @relation("BuyerOrders", fields: [userId], references: [id])
+  status           String   @default("PENDING")
+  totalPaise       Int
+  // Affiliate attribution
+  referredByUserId Int?
+  referredByUser   User?    @relation("ReferredOrders", fields: [referredByUserId], references: [id])
+  referredByCode   String?
+  commissionPaise  Int      @default(0)
+  commissionStatus String?  // PENDING | PAYABLE | PAID | VOID
+  // Platform fee — the developer/operator's cut of every sale (transparent, agreed rate)
+  platformFeePaise  Int     @default(0)
+  platformFeeStatus String? // PENDING | PAYABLE | PAID | VOID (mirrors the order lifecycle)
+  // Shipping address
+  shipName         String
+  shipPhone        String
+  shipLine1        String
+  shipLine2        String?
+  shipCity         String
+  shipState        String
+  shipPincode      String
+  // Payment
+  paymentMode      String   @default("RAZORPAY") // RAZORPAY | COD | MOCK
+  razorpayOrderId  String?
+  razorpayPaymentId String?
+  paidAt           DateTime?
+  // Fulfilment / tracking
+  carrier          String?
+  trackingNumber   String?  // India Post consignment number
+  lrCopyUrl        String?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  // Status history as JSON [{status, at, note}]
+  history          String   @default("[]")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  items            OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([referredByUserId])
+}
+
+model OrderItem {
+  id         Int     @id @default(autoincrement())
+  orderId    Int
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  Int
+  product    Product @relation(fields: [productId], references: [id])
+  name       String
+  pricePaise Int
+  quantity   Int
+  image      String?
+  size       String?
+}

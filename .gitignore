@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Secrets / environment (templates .env.example & .env.production.example ARE committed)
+.env
+.env.local
+.env.production
+**/.env
+**/.env.local
+**/.env.production
+
+# Build output (Render builds these at deploy time)
+dist/
+**/dist/
+out/
+**/out/
+
+# Runtime data (moves to Cloudinary; never source-controlled)
+backend/uploads/
+backend/backups/
+backend/prisma/*.db
+backend/prisma/*.db-journal
+*.sqlite
+*.sqlite3
+
+# WhatsApp / puppeteer session data (if any)
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Claude Code local tooling (not part of the app)
+.claude/
