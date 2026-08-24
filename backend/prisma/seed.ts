@@ -56,7 +56,9 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 10)
   await db.user.upsert({
     where: { email },
-    update: { role: 'ADMIN', passwordHash, name },
+    // Don't reset the password on re-seed (deploys restart the app) — keep whatever the
+    // admin set. Only the first run (create) applies the ADMIN_PASSWORD from env.
+    update: { role: 'ADMIN', name },
     create: { email, role: 'ADMIN', passwordHash, name }
   })
   console.log(`✓ Admin ready: ${email} / ${password}`)

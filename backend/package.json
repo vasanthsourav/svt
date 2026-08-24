@@ -11,7 +11,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
     "build:client": "cd ../storefront && npm install --include=dev && npm run build",
-    "start:prod": "prisma generate && prisma db push && tsx src/index.ts"
+    "start:prod": "prisma generate && prisma db push && (npm run db:seed || echo 'seed skipped') && tsx src/index.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
