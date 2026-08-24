@@ -1,10 +1,44 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google'
 import { api } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 
 type Tab = 'otp' | 'email'
+
+// "Continue with Google" — only rendered when the server has GOOGLE_CLIENT_ID set.
+function GoogleSignIn({ onDone }: { onDone: (t: string, u: any) => void }) {
+  const [clientId, setClientId] = useState<string | null>(null)
+  useEffect(() => {
+    api.get<{ googleClientId: string | null }>('/auth/config')
+      .then((c) => setClientId(c.googleClientId))
+      .catch(() => setClientId(null))
+  }, [])
+  if (!clientId) return null
+  return (
+    <>
+      <div className="relative my-5 text-center">
+        <span className="relative z-10 bg-white px-3 text-xs uppercase tracking-wider text-stone-400">or</span>
+        <div className="absolute inset-x-0 top-1/2 h-px bg-stone-200" />
+      </div>
+      <GoogleOAuthProvider clientId={clientId}>
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={async (cr) => {
+              try {
+                const r = await api.post<{ token: string; user: any }>('/auth/google', { credential: cr.credential })
+                onDone(r.token, r.user)
+              } catch (e: any) { toast.error(e.message || 'Google sign-in failed') }
+            }}
+            onError={() => toast.error('Google sign-in failed')}
+            width="320"
+          />
+        </div>
+      </GoogleOAuthProvider>
+    </>
+  )
+}
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -30,6 +64,8 @@ export default function LoginPage() {
         </div>
 
         {tab === 'otp' ? <OtpLogin onDone={finish} /> : <EmailLogin onDone={finish} />}
+
+        <GoogleSignIn onDone={finish} />
       </div>
 
       <p className="text-center text-xs text-stone-400 mt-6">

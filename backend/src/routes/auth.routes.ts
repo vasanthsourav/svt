@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { OAuth2Client } from 'google-auth-library'
 import { db } from '../db'
 import { signToken, requireAuth } from '../auth'
 import { requestOtp, verifyOtp } from '../services/otp.service'
@@ -8,6 +9,39 @@ import { requestOtp, verifyOtp } from '../services/otp.service'
 export const authRouter = Router()
 
 const publicUser = (u: any) => ({ id: u.id, role: u.role, name: u.name, email: u.email, phone: u.phone })
+
+// Google Sign-In (optional). Set GOOGLE_CLIENT_ID to enable the "Continue with Google"
+// button on the storefront; leave it unset and the button simply doesn't appear.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID)
+
+// Public: tells the storefront which sign-in options are enabled (client id is public).
+authRouter.get('/config', (_req, res) => {
+  res.json({ googleClientId: GOOGLE_CLIENT_ID || null })
+})
+
+// Sign in / sign up with a Google ID token obtained on the storefront.
+authRouter.post('/google', async (req, res) => {
+  if (!GOOGLE_CLIENT_ID) return res.status(400).json({ error: 'Google sign-in is not enabled.' })
+  const credential = String(req.body?.credential || '')
+  if (!credential) return res.status(400).json({ error: 'Missing Google credential.' })
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID })
+    const payload = ticket.getPayload()
+    if (!payload?.email || payload.email_verified === false) {
+      return res.status(401).json({ error: 'Your Google email could not be verified.' })
+    }
+    const email = payload.email.toLowerCase()
+    const name = payload.name || payload.given_name || null
+    // Match an existing account by email, or create a new customer (no password needed).
+    let user = await db.user.findUnique({ where: { email } })
+    if (!user) user = await db.user.create({ data: { email, name, role: 'CUSTOMER' } })
+    else if (!user.name && name) user = await db.user.update({ where: { id: user.id }, data: { name } })
+    res.json({ token: signToken(user), user: publicUser(user) })
+  } catch {
+    res.status(401).json({ error: 'Google sign-in failed. Please try again.' })
+  }
+})
 
 // ── Email + password ─────────────────────────────────────────────────────────
 authRouter.post('/register', async (req, res) => {
