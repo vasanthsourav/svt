@@ -11,9 +11,8 @@ export const SHOP = {
     'Thoothukudi District, Tamil Nadu, India'
   ],
   gstin: '33ASJPV0060A1Z7',
-  // TODO(owner): replace with real contact details
-  phone: '+91 90000 00000',
-  whatsapp: '+91 90000 00000',
+  phone: '+91 90430 37450',
+  whatsapp: '+91 90430 37450',
   email: 'srivenkateshwaratextils@gmail.com',
   hours: 'Mon – Sun · 9:00 AM to 9:00 PM',
   // Last updated date shown on policy pages
