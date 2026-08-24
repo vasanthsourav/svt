@@ -1,0 +1,62 @@
+# Render Blueprint — deploys SVT-Shop (storefront + API) as ONE web service.
+#
+# Database: bring your own PostgreSQL. Neon's free tier (neon.tech) is recommended
+# because it's durable (Render's own free Postgres is deleted after 30 days). Create
+# a Neon project, copy its connection string, and paste it as DATABASE_URL when Render
+# prompts for the "sync: false" values below.
+#
+# First deploy: after it's live, open the service's Shell in Render and run once:
+#     npm run db:seed
+# to create the admin account + sample catalogue. (Schema itself is applied
+# automatically by `prisma db push` in start:prod.)
+
+services:
+  - type: web
+    name: svt-shop
+    runtime: node
+    plan: free
+    region: singapore            # closest free region to India
+    rootDir: backend
+    buildCommand: npm install && npm run build:client && npx prisma generate
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4100
+
+      # Postgres connection string (Neon/Render/Supabase) — paste in the Render dashboard.
+      - key: DATABASE_URL
+        sync: false
+
+      # Auth — Render generates a strong random secret for you.
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES
+        value: 30d
+
+      # Storefront origins allowed by CORS (your domain).
+      - key: CORS_ORIGINS
+        value: https://svtkvp.in,https://www.svtkvp.in
+
+      # Seeded admin account — CHANGE the password (set it in the dashboard).
+      - key: ADMIN_EMAIL
+        value: admin@svttextils.com
+      - key: ADMIN_NAME
+        value: SVT Admin
+      - key: ADMIN_PASSWORD
+        sync: false
+
+      # Image CDN — paste your Cloudinary URL (cloudinary://key:secret@cloud_name).
+      # Leave unset to fall back to local disk (NOT durable on Render — set this).
+      - key: CLOUDINARY_URL
+        sync: false
+
+      # Phone OTP: 'console' = codes printed to logs (no SMS). Wire a gateway later.
+      - key: OTP_PROVIDER
+        value: console
+
+      # Payments: leave Razorpay keys unset = MOCK mode (checkout auto-succeeds).
+      # Add RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET in the dashboard to go live.

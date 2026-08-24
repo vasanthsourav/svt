@@ -45,6 +45,12 @@ function runBackup(): void {
 }
 
 export function startDbBackups(): void {
+  // File snapshots only make sense for SQLite. On managed Postgres (Render/Neon) the
+  // provider handles backups, so skip the local snapshot loop entirely.
+  if (!(process.env.DATABASE_URL || '').startsWith('file:')) {
+    console.log('   Backups:  managed by Postgres provider (local snapshots skipped)')
+    return
+  }
   runBackup() // one on startup
   setInterval(runBackup, EVERY_MS)
   console.log(`   Backups:  every ${EVERY_MS / 60000} min → ${BACKUP_DIR} (keep ${KEEP})`)
