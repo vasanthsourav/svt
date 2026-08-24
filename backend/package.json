@@ -10,7 +10,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts",
-    "build:client": "cd ../storefront && npm install && npm run build",
+    "build:client": "cd ../storefront && npm install --include=dev && npm run build",
     "start:prod": "prisma generate && prisma db push && tsx src/index.ts"
   },
   "dependencies": {

@@ -17,7 +17,9 @@ services:
     plan: free
     region: singapore            # closest free region to India
     rootDir: backend
-    buildCommand: npm install && npm run build:client && npx prisma generate
+    # --include=dev: NODE_ENV=production otherwise skips devDeps (vite/tsx/prisma),
+    # which are needed to build the storefront and to run the server (tsx) at runtime.
+    buildCommand: npm install --include=dev && npm run build:client && npx prisma generate
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     autoDeploy: true
