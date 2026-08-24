@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
@@ -13,6 +14,14 @@ export default function Navbar() {
   const { count } = useCart()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+
+  // Stop the page behind the drawer from scrolling while it's open.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
 
   // Close the drawer whenever the route changes.
   const links = (
@@ -65,9 +74,14 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile drawer */}
-      <AnimatePresence>
-        {open && (
+      {/* Mobile drawer — rendered through a portal into <body>. The header sets
+          `backdrop-blur`, and an element with backdrop-filter becomes the containing
+          block for its fixed-position descendants; left inside the header, the drawer
+          and its overlay would be trapped in the header's ~90px box instead of
+          covering the viewport. */}
+      {createPortal(
+        <AnimatePresence>
+          {open && (
           <>
             <motion.div className="fixed inset-0 bg-[#0e1014]/50 z-50 md:hidden"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} />
@@ -94,9 +108,11 @@ export default function Navbar() {
                   : <Link to="/login" onClick={() => setOpen(false)} className="btn-primary w-full">Login</Link>}
               </div>
             </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </header>
   )
 }
