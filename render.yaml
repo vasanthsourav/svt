@@ -60,15 +60,13 @@ services:
       - key: OTP_PROVIDER
         value: console
 
-      # WhatsApp order alerts (customer bill + admin new-order alert).
-      # Leave unset = MOCK mode (messages printed to logs). To go LIVE, set the
-      # WhatsApp Cloud API token + phone-number id from Meta, and the admin's number.
-      - key: WHATSAPP_TOKEN
-        sync: false
-      - key: WHATSAPP_PHONE_ID
-        sync: false
-      - key: ADMIN_WHATSAPP
-        sync: false
+      # WhatsApp order alerts (customer bill + admin new-order alert):
+      # unset = MOCK mode (messages printed to the logs). To go LIVE add
+      # WHATSAPP_TOKEN, WHATSAPP_PHONE_ID and ADMIN_WHATSAPP in the dashboard —
+      # see docs/whatsapp-setup.md. They are deliberately NOT declared here: a
+      # `sync: false` entry only tells Render to prompt for a value, and adding
+      # new ones puts the Blueprint into an awaiting-input state that blocks
+      # auto-deploys until someone confirms them in the dashboard.
 
       # Payments: leave Razorpay keys unset = MOCK mode (checkout auto-succeeds).
       # Add RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET in the dashboard to go live.
