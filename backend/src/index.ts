@@ -12,6 +12,8 @@ import { affiliateRouter } from './routes/affiliate.routes'
 import { tryonRouter } from './routes/tryon.routes'
 import { recordReferralClick } from './services/affiliate.service'
 import { razorpayConfigured } from './services/razorpay.service'
+import { cashfreeConfigured, cashfreeEnv } from './services/cashfree.service'
+import { whatsappIsLive } from './services/notify.service'
 import { startDbBackups } from './services/backup.service'
 
 const app = express()
@@ -29,7 +31,10 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))
 
 app.get('/api/health', (_req, res) => res.json({
   ok: true,
-  payments: razorpayConfigured ? 'razorpay-live' : 'mock',
+  // The only production visibility into which integrations actually took effect —
+  // this is how you confirm dashboard env vars landed without shipping a build.
+  payments: cashfreeConfigured ? `cashfree-${cashfreeEnv}` : razorpayConfigured ? 'razorpay-live' : 'mock',
+  whatsapp: whatsappIsLive ? 'live' : 'mock',
   otp: (process.env.OTP_PROVIDER || 'console')
 }))
 

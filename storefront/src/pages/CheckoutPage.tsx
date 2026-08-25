@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { inr } from '../lib/format'
 import { openRazorpay } from '../lib/razorpay'
+import { openCashfree } from '../lib/cashfree'
 import { getRef, setRef, clearRef } from '../lib/ref'
 import AnimatedNumber from '../components/AnimatedNumber'
 import Icon from '../components/Icon'
@@ -15,7 +16,8 @@ export default function CheckoutPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
-  const [mode, setMode] = useState<'RAZORPAY' | 'COD'>('RAZORPAY')
+  // The customer picks online-vs-COD; the server decides which gateway handles it.
+  const [mode, setMode] = useState<'ONLINE' | 'COD'>('ONLINE')
   const [refCode, setRefCode] = useState(getRef())
   const [ship, setShip] = useState({
     name: user?.name || '', phone: user?.phone || '', line1: '', line2: '',
@@ -51,20 +53,28 @@ export default function CheckoutPage() {
         clear(); clearRef(); toast.success('Order placed! Pay on delivery.'); navigate(`/orders/${order.id}`, { state: { justPlaced: true } }); return
       }
 
-      // Razorpay path. In mock mode (no keys) we confirm straight away.
-      if (payment.mock || !payment.configured || !payment.keyId) {
+      // Mock mode (no gateway keys on the server) — confirm straight away so the
+      // whole flow stays testable without an account.
+      if (payment.mock || !payment.configured) {
         await api.post(`/orders/${order.id}/confirm`, { razorpayPaymentId: 'mock_pay', razorpaySignature: 'mock_sig' })
         clear(); clearRef(); toast.success('Payment successful (test mode)!'); navigate(`/orders/${order.id}`, { state: { justPlaced: true } }); return
       }
 
-      const result = await openRazorpay({
-        keyId: payment.keyId, amount: payment.amount, currency: payment.currency,
-        orderId: payment.razorpayOrderId, name: 'Sri Venkateshwara Textiles',
-        description: `Order ${order.orderNumber}`,
-        prefill: { name: ship.name, contact: ship.phone, email: user?.email || undefined }
-      })
-      await api.post(`/orders/${order.id}/confirm`, result)
-      clear(); toast.success('Payment successful!'); navigate(`/orders/${order.id}`, { state: { justPlaced: true } })
+      if (payment.mode === 'CASHFREE') {
+        // Opens the Cashfree modal; the server then re-checks the real status,
+        // so we deliberately send it nothing about the payment itself.
+        await openCashfree({ paymentSessionId: payment.paymentSessionId, env: payment.env })
+        await api.post(`/orders/${order.id}/confirm`, {})
+      } else {
+        const result = await openRazorpay({
+          keyId: payment.keyId, amount: payment.amount, currency: payment.currency,
+          orderId: payment.razorpayOrderId, name: 'Sri Venkateshwara Textiles',
+          description: `Order ${order.orderNumber}`,
+          prefill: { name: ship.name, contact: ship.phone, email: user?.email || undefined }
+        })
+        await api.post(`/orders/${order.id}/confirm`, result)
+      }
+      clear(); clearRef(); toast.success('Payment successful!'); navigate(`/orders/${order.id}`, { state: { justPlaced: true } })
     } catch (e: any) {
       toast.error(e.message || 'Could not complete the order.')
     } finally {
@@ -94,10 +104,10 @@ export default function CheckoutPage() {
           <div className="card p-6">
             <h2 className="font-serif text-xl text-maroon mb-4">Payment Method</h2>
             <div className="space-y-3">
-              <label className={`flex items-center gap-3 p-4 border cursor-pointer transition ${mode === 'RAZORPAY' ? 'border-maroon bg-maroon/5' : 'border-stone-200 hover:border-stone-300'}`}>
-                <input type="radio" checked={mode === 'RAZORPAY'} onChange={() => setMode('RAZORPAY')} className="accent-maroon" />
-                <Icon name="shield" className={`w-5 h-5 ${mode === 'RAZORPAY' ? 'text-maroon' : 'text-stone-400'}`} />
-                <div><p className="font-semibold text-stone-800">Pay Online</p><p className="text-xs text-stone-500">Cards, UPI, Netbanking, Wallets — secured by Razorpay</p></div>
+              <label className={`flex items-center gap-3 p-4 border cursor-pointer transition ${mode === 'ONLINE' ? 'border-maroon bg-maroon/5' : 'border-stone-200 hover:border-stone-300'}`}>
+                <input type="radio" checked={mode === 'ONLINE'} onChange={() => setMode('ONLINE')} className="accent-maroon" />
+                <Icon name="shield" className={`w-5 h-5 ${mode === 'ONLINE' ? 'text-maroon' : 'text-stone-400'}`} />
+                <div><p className="font-semibold text-stone-800">Pay Online</p><p className="text-xs text-stone-500">UPI, Cards, Netbanking & Wallets — secured by Cashfree</p></div>
               </label>
               <label className={`flex items-center gap-3 p-4 border cursor-pointer transition ${mode === 'COD' ? 'border-maroon bg-maroon/5' : 'border-stone-200 hover:border-stone-300'}`}>
                 <input type="radio" checked={mode === 'COD'} onChange={() => setMode('COD')} className="accent-maroon" />

@@ -4,6 +4,7 @@ import { db } from '../db'
 import { requireAuth } from '../auth'
 import { serializeOrder } from '../serialize'
 import { createRazorpayOrder, verifyPaymentSignature, razorpayConfigured, razorpayKeyId } from '../services/razorpay.service'
+import { createCashfreeOrder, isCashfreeOrderPaid, cashfreeConfigured, cashfreeEnv } from '../services/cashfree.service'
 import { findReferrerByCode, effectiveCommissionPercent } from '../services/affiliate.service'
 import { getPlatformFeePercent } from '../services/platform.service'
 import { notifyOrderConfirmed } from '../services/notify.service'
@@ -11,6 +12,23 @@ import { notifyOrderConfirmed } from '../services/notify.service'
 export const ordersRouter = Router()
 
 const trackUrl = () => process.env.INDIA_POST_TRACK_URL || ''
+
+// Delivery charge, mirroring what the storefront advertises: free above ₹1499,
+// otherwise a flat ₹79. Kept in paise, like every other amount here.
+const FREE_SHIPPING_MIN_PAISE = 149900
+const SHIPPING_FEE_PAISE = 7900
+
+// Which gateway handles online payments. The SERVER decides — the browser only
+// says "online" or "COD" — so a client can't pick a gateway we haven't configured.
+// PAYMENT_GATEWAY forces one; otherwise whichever has credentials wins, Cashfree
+// first. With neither configured we're in mock mode and the label is cosmetic.
+function chooseGateway(): 'CASHFREE' | 'RAZORPAY' {
+  const forced = (process.env.PAYMENT_GATEWAY || '').toUpperCase()
+  if (forced === 'CASHFREE' || forced === 'RAZORPAY') return forced
+  if (cashfreeConfigured) return 'CASHFREE'
+  if (razorpayConfigured) return 'RAZORPAY'
+  return 'CASHFREE'
+}
 
 function pushHistory(historyJson: string, status: string, note?: string): string {
   let h: any[] = []
@@ -30,7 +48,9 @@ const checkoutSchema = z.object({
     line1: z.string().min(1), line2: z.string().optional(),
     city: z.string().min(1), state: z.string().min(1), pincode: z.string().min(4)
   }),
-  paymentMode: z.enum(['RAZORPAY', 'COD']).default('RAZORPAY'),
+  // The browser only chooses online-vs-COD; the server picks the actual gateway.
+  // RAZORPAY/CASHFREE are still accepted so older clients keep working.
+  paymentMode: z.enum(['ONLINE', 'RAZORPAY', 'CASHFREE', 'COD']).default('ONLINE'),
   referralCode: z.string().optional()
 })
 
@@ -92,10 +112,21 @@ ordersRouter.post('/', requireAuth, async (req, res) => {
   const platformFeePaise = Math.round((total * platformPct) / 100)
   const platformFeeStatus = platformFeePaise > 0 ? 'PENDING' : null
 
+  // Delivery charge. The storefront has always SHOWN this in the total, but it
+  // was never added to the amount sent to the gateway — the customer was billed
+  // for the items only. Add it here, after the commission and platform fee above
+  // so neither is ever accrued on freight.
+  const itemsSubtotalPaise = total
+  const shippingPaise = itemsSubtotalPaise >= FREE_SHIPPING_MIN_PAISE ? 0 : SHIPPING_FEE_PAISE
+  const grandTotalPaise = itemsSubtotalPaise + shippingPaise
+
+  // Record the gateway that will actually handle this order, not what was asked for.
+  const resolvedMode = paymentMode === 'COD' ? 'COD' : chooseGateway()
+
   const orderNumber = `SVTO-${Date.now().toString(36).toUpperCase()}`
   const order = await db.order.create({
     data: {
-      orderNumber, userId: me.id, status: 'PENDING', totalPaise: total, paymentMode,
+      orderNumber, userId: me.id, status: 'PENDING', totalPaise: grandTotalPaise, paymentMode: resolvedMode,
       shipName: shipping.name, shipPhone: shipping.phone, shipLine1: shipping.line1,
       shipLine2: shipping.line2 || null, shipCity: shipping.city, shipState: shipping.state,
       shipPincode: shipping.pincode,
@@ -107,13 +138,42 @@ ordersRouter.post('/', requireAuth, async (req, res) => {
     include: { items: true, user: true }
   })
 
-  // COD: confirm immediately. RAZORPAY: create a gateway order to pay.
-  if (paymentMode === 'COD') {
+  // COD: confirm immediately. Online: create a gateway order to pay against.
+  if (resolvedMode === 'COD') {
     const confirmed = await confirmAndFulfilStock(order.id, 'COD')
     return res.json({ order: serializeOrder(confirmed, trackUrl()), payment: { mode: 'COD' } })
   }
 
-  const rp = await createRazorpayOrder(total, orderNumber)
+  if (resolvedMode === 'CASHFREE') {
+    try {
+      const cf = await createCashfreeOrder({
+        orderNumber,
+        amountPaise: grandTotalPaise,
+        customerId: me.id,
+        customerName: shipping.name,
+        customerEmail: me.email || null,
+        customerPhone: shipping.phone,
+        returnUrl: process.env.CASHFREE_RETURN_URL || undefined
+      })
+      return res.json({
+        order: serializeOrder(order, trackUrl()),
+        payment: {
+          mode: 'CASHFREE', mock: cf.mock,
+          paymentSessionId: cf.paymentSessionId,
+          // The browser SDK's mode must match the environment this session was
+          // created in — a sandbox session is rejected by a production SDK.
+          env: cf.env, amount: cf.amount, currency: cf.currency,
+          configured: cashfreeConfigured
+        }
+      })
+    } catch (e: any) {
+      // The order stays PENDING with stock untouched, so the customer can retry.
+      console.error(`[orders] Cashfree order failed for ${orderNumber}:`, e?.message || e)
+      return res.status(502).json({ error: e?.message || 'Could not reach the payment gateway. Please try again.' })
+    }
+  }
+
+  const rp = await createRazorpayOrder(grandTotalPaise, orderNumber)
   await db.order.update({ where: { id: order.id }, data: { razorpayOrderId: rp.id } })
   res.json({
     order: serializeOrder(order, trackUrl()),
@@ -164,6 +224,17 @@ ordersRouter.post('/:id/confirm', requireAuth, async (req, res) => {
   const id = Number(req.params.id)
   const order = await db.order.findUnique({ where: { id } })
   if (!order || order.userId !== me.id) return res.status(404).json({ error: 'Order not found.' })
+
+  // Cashfree: nothing the browser sends is trusted. Ask Cashfree what happened
+  // and only fulfil when it reports the order as PAID.
+  if (order.paymentMode === 'CASHFREE') {
+    const result = await isCashfreeOrderPaid(order.orderNumber)
+    if (!result.paid) {
+      return res.status(400).json({ error: `Payment not completed (status: ${result.status}).` })
+    }
+    const confirmed = await confirmAndFulfilStock(id, 'CASHFREE', result.paymentId)
+    return res.json({ order: serializeOrder(confirmed, trackUrl()) })
+  }
 
   const { razorpayPaymentId, razorpaySignature } = req.body || {}
   const ok = verifyPaymentSignature(order.razorpayOrderId || '', razorpayPaymentId || '', razorpaySignature || '')
