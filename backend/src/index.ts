@@ -12,7 +12,7 @@ import { affiliateRouter } from './routes/affiliate.routes'
 import { tryonRouter } from './routes/tryon.routes'
 import { recordReferralClick } from './services/affiliate.service'
 import { razorpayConfigured } from './services/razorpay.service'
-import { cashfreeConfigured, cashfreeEnv } from './services/cashfree.service'
+import { cashfreeConfigured, cashfreeEnv, cashfreeSplitEnabled } from './services/cashfree.service'
 import { whatsappIsLive } from './services/notify.service'
 import { startDbBackups } from './services/backup.service'
 
@@ -35,6 +35,7 @@ app.get('/api/health', (_req, res) => res.json({
   // this is how you confirm dashboard env vars landed without shipping a build.
   payments: cashfreeConfigured ? `cashfree-${cashfreeEnv}` : razorpayConfigured ? 'razorpay-live' : 'mock',
   whatsapp: whatsappIsLive ? 'live' : 'mock',
+  split: cashfreeSplitEnabled ? 'on' : 'off',
   otp: (process.env.OTP_PROVIDER || 'console')
 }))
 

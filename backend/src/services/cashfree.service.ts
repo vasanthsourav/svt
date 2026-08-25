@@ -22,6 +22,32 @@ const API_VERSION = '2026-01-01'
 export const cashfreeConfigured = Boolean(APP_ID && SECRET)
 export const cashfreeEnv = ENV
 
+// ── Easy Split (optional) ────────────────────────────────────────────────────
+// Cashfree can settle a share of every payment straight to a second bank account
+// instead of it being invoiced later. Set both vars to switch it on:
+//
+//   CASHFREE_SPLIT_VENDOR_ID   vendor id, created in the merchant's Cashfree
+//                              dashboard (needs the vendor's PAN + bank KYC)
+//   CASHFREE_SPLIT_PERCENT     share of the order, e.g. 2
+//
+// Prerequisites live outside this code: Easy Split has to be enabled on the
+// merchant account and the vendor onboarded there. Until both vars are set this
+// is inert and orders are created exactly as before.
+//
+// Percentage rather than a fixed amount is deliberate — Cashfree does not support
+// split-by-amount for vendor-prepaid charges, so percentage always works.
+// NOTE it applies to the FULL order amount, delivery charge included, which is not
+// the same base as the in-app platform fee (that one excludes delivery).
+const SPLIT_VENDOR_ID = process.env.CASHFREE_SPLIT_VENDOR_ID || ''
+const SPLIT_PERCENT = Number(process.env.CASHFREE_SPLIT_PERCENT || '0')
+const splitPercentValid = Number.isFinite(SPLIT_PERCENT) && SPLIT_PERCENT > 0 && SPLIT_PERCENT <= 100
+
+export const cashfreeSplitEnabled = Boolean(SPLIT_VENDOR_ID && splitPercentValid)
+
+if (SPLIT_VENDOR_ID && !splitPercentValid) {
+  console.warn(`[cashfree] CASHFREE_SPLIT_VENDOR_ID is set but CASHFREE_SPLIT_PERCENT (${process.env.CASHFREE_SPLIT_PERCENT}) is not a percentage between 0 and 100 — Easy Split is OFF.`)
+}
+
 const BASE = ENV === 'production' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg'
 
 const headers = () => ({
@@ -63,6 +89,12 @@ export async function createCashfreeOrder(opts: {
   const amount = Number((opts.amountPaise / 100).toFixed(2))
 
   if (!cashfreeConfigured) {
+    if (cashfreeSplitEnabled) {
+      // Show the split that WOULD be applied, so the arithmetic can be checked
+      // before any real money is in play.
+      const vendorShare = Number((amount * SPLIT_PERCENT / 100).toFixed(2))
+      console.log(`[cashfree:MOCK] ${opts.orderNumber} ₹${amount} → vendor ${SPLIT_VENDOR_ID} ₹${vendorShare} (${SPLIT_PERCENT}%), merchant ₹${Number((amount - vendorShare).toFixed(2))}`)
+    }
     return {
       orderId: opts.orderNumber,
       paymentSessionId: `mock_session_${opts.orderNumber}`,
@@ -82,6 +114,12 @@ export async function createCashfreeOrder(opts: {
     }
   }
   if (opts.returnUrl) body.order_meta = { return_url: opts.returnUrl }
+
+  // Settle the agreed share straight to the vendor's bank account. Cashfree pays
+  // the vendor leg out of this order's settlement; the merchant keeps the rest.
+  if (cashfreeSplitEnabled) {
+    body.order_splits = [{ vendor_id: SPLIT_VENDOR_ID, percentage: SPLIT_PERCENT }]
+  }
 
   const resp = await fetch(`${BASE}/orders`, { method: 'POST', headers: headers(), body: JSON.stringify(body) })
   const data: any = await resp.json().catch(() => ({}))

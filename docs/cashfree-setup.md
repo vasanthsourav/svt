@@ -81,6 +81,46 @@ curl https://www.svtkvp.in/api/health
 - **API version** is pinned to `2026-01-01` in the service, so Cashfree changing
   their default can't alter behaviour underneath you.
 
+---
+
+## Easy Split — automatic revenue share (optional)
+
+Cashfree can settle an agreed share of every payment straight to a second bank
+account, so a developer/operator fee is paid at the moment the customer pays
+instead of being invoiced later.
+
+```
+CASHFREE_SPLIT_VENDOR_ID = <vendor id from the Cashfree dashboard>
+CASHFREE_SPLIT_PERCENT   = 2
+```
+
+Leave either blank and orders are created exactly as before. `/api/health`
+reports `split: on|off` so you can confirm it took effect.
+
+**Before it can work, two things happen in the merchant's Cashfree account:**
+
+1. **Easy Split is enabled** on the account (request it from Cashfree — it is not
+   on by default).
+2. **The vendor is onboarded** there, with PAN and bank details for KYC, which is
+   what produces the vendor id.
+
+Both are actions on the merchant side, and the resulting splits appear in the
+merchant's own settlement reports — Easy Split is designed that way, and payment
+aggregators are regulated to show a merchant where their money went. So this is
+something the shop sets up with you, not something that can be added quietly.
+
+**Two details worth getting right:**
+
+- **Percentage, not amount.** Cashfree does not support split-by-amount for
+  vendor-prepaid charges, so the code always sends a percentage.
+- **Different base from the in-app platform fee.** The Easy Split percentage
+  applies to the whole order amount *including* the ₹79 delivery charge, whereas
+  `PLATFORM_FEE_PERCENT` in `/admin/platform` is calculated on the item subtotal
+  only. On a ₹1,299 basket that is ₹27.56 via Easy Split vs ₹25.98 via the
+  tracker. Pick one as the source of truth — running both will double-count.
+
+---
+
 ## Razorpay
 The Razorpay integration is still present and working. If you set Razorpay keys
 and no Cashfree keys, the shop uses Razorpay exactly as before.
