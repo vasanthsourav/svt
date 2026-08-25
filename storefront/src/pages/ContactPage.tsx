@@ -1,4 +1,4 @@
-import { SHOP } from '../lib/shop'
+import { SHOP, MAPS_DIRECTIONS_URL, MAPS_EMBED_URL } from '../lib/shop'
 import Icon from '../components/Icon'
 
 export default function ContactPage() {
@@ -18,6 +18,9 @@ export default function ContactPage() {
           </p>
           <p className="mt-3 text-sm text-gold-dark">{S.hours}</p>
           <p className="mt-2 text-xs text-stone-400">GSTIN: {S.gstin}</p>
+          <a className="btn-outline mt-4 inline-flex items-center gap-2 text-sm" target="_blank" rel="noreferrer" href={MAPS_DIRECTIONS_URL}>
+            <Icon name="mapPin" className="w-4 h-4" /> Get Directions
+          </a>
         </div>
 
         <div className="card p-6">
@@ -32,6 +35,23 @@ export default function ContactPage() {
             Chat on WhatsApp
           </a>
         </div>
+      </div>
+
+      <div className="card mt-5 overflow-hidden">
+        <div className="flex items-center justify-between gap-4 p-6 pb-4">
+          <h2 className="font-serif text-xl text-maroon">Find Us on the Map</h2>
+          <a className="inline-flex items-center gap-1.5 text-sm font-semibold text-maroon hover:text-gold-dark" target="_blank" rel="noreferrer" href={MAPS_DIRECTIONS_URL}>
+            Directions <Icon name="external" className="w-3.5 h-3.5" />
+          </a>
+        </div>
+        <iframe
+          title={`Map to ${S.name}`}
+          src={MAPS_EMBED_URL}
+          className="w-full h-[320px] border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+          allowFullScreen
+        />
       </div>
 
       <div className="card p-6 mt-5">

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { SHOP } from '../lib/shop'
+import { SHOP, MAPS_DIRECTIONS_URL } from '../lib/shop'
 import Icon from './Icon'
 
 export default function Footer() {
@@ -42,6 +42,9 @@ export default function Footer() {
             {SHOP.addressLines.map((l, i) => <span key={i}>{l}<br /></span>)}
             <span className="text-gold">{SHOP.hours}</span>
           </p>
+          <a className="inline-flex items-center gap-2 mt-2 text-sm text-gold hover:text-cream" target="_blank" rel="noreferrer" href={MAPS_DIRECTIONS_URL}>
+            <Icon name="mapPin" className="w-4 h-4" /> Get Directions
+          </a>
           <div className="text-sm text-cream/60 mt-3 space-y-1.5">
             <a className="flex items-center gap-2 hover:text-gold" href={`tel:${SHOP.phone.replace(/\s/g, '')}`}><Icon name="phone" className="w-4 h-4 text-gold" /> {SHOP.phone}</a>
             <a className="flex items-center gap-2 hover:text-gold" href={`mailto:${SHOP.email}`}><Icon name="mail" className="w-4 h-4 text-gold" /> {SHOP.email}</a>
