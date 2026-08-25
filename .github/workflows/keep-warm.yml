@@ -1,0 +1,48 @@
+# Keeps the Render free-tier service awake during shopping hours.
+#
+# Render suspends a free service after 15 minutes without inbound traffic, and
+# waking it takes about a minute — which is what customers experience as the site
+# "getting stuck" on first load. Pinging it more often than every 15 minutes
+# prevents the sleep in the first place.
+#
+# Why only part of the day: a Render workspace gets 750 free instance-hours per
+# calendar month and a 31-day month is 744 hours, so keeping the service up 24/7
+# leaves almost no headroom — and that budget is shared by EVERY free service in
+# the workspace. Pinging 00:00–17:59 UTC (05:30–23:29 IST) costs roughly 560
+# hours a month instead, which is comfortably inside the allowance. Overnight the
+# shop is allowed to sleep; a rare 3am visitor waits for the wake-up.
+#
+# /api/health is deliberately the target: it reads env vars only and makes NO
+# database query, so this keeps Render awake without also keeping the Neon
+# database awake and burning its separate free compute-hour allowance.
+#
+# Note GitHub may run scheduled jobs late under load, and disables schedules on
+# repos with no activity for 60 days. Treat this as the free option; an external
+# monitor (UptimeRobot, 5-minute interval) is the more punctual one, and Render's
+# $7/mo Starter plan removes the sleep entirely.
+
+name: Keep site warm
+
+on:
+  schedule:
+    - cron: '*/10 0-17 * * *'   # every 10 minutes, 00:00–17:59 UTC
+  workflow_dispatch:             # lets you trigger a wake-up by hand
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping health endpoint
+        run: |
+          # --max-time 90 because a cold start legitimately takes ~60s; the point
+          # of this request is to BE the wake-up when the service has dropped off.
+          code=$(curl -sSL -o /tmp/body.txt -w '%{http_code}' --max-time 90 \
+            https://www.svtkvp.in/api/health || echo 000)
+          echo "HTTP $code"
+          cat /tmp/body.txt || true
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::Health check returned $code"
+            exit 1
+          fi
