@@ -1,7 +1,8 @@
 import { db } from '../db'
 
 // The developer/operator's transparent cut of every sale. Agreed rate, admin-visible.
-const DEFAULT_PCT = Number(process.env.PLATFORM_FEE_PERCENT || '5')
+// A Setting row ('platformFeePercent') overrides this default when present.
+const DEFAULT_PCT = Number(process.env.PLATFORM_FEE_PERCENT || '2')
 
 export async function getPlatformFeePercent(): Promise<number> {
   const row = await db.setting.findUnique({ where: { key: 'platformFeePercent' } })
