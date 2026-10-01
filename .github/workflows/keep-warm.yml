@@ -8,24 +8,25 @@
 # Why only part of the day: a Render workspace gets 750 free instance-hours per
 # calendar month and a 31-day month is 744 hours, so keeping the service up 24/7
 # leaves almost no headroom — and that budget is shared by EVERY free service in
-# the workspace. Pinging 00:00–17:59 UTC (05:30–23:29 IST) costs roughly 560
-# hours a month instead, which is comfortably inside the allowance. Overnight the
-# shop is allowed to sleep; a rare 3am visitor waits for the wake-up.
+# the workspace. The shop's hours are 06:00–23:00 IST: render-schedule.yml
+# resumes the service at 05:30 IST and suspends it at 23:00 IST, and this pings
+# only in between (00:10–17:20 UTC = 05:40–22:50 IST). Pinging a suspended
+# service would just fail.
 #
 # /api/health is deliberately the target: it reads env vars only and makes NO
 # database query, so this keeps Render awake without also keeping the Neon
 # database awake and burning its separate free compute-hour allowance.
 #
-# Note GitHub may run scheduled jobs late under load, and disables schedules on
-# repos with no activity for 60 days. Treat this as the free option; an external
-# monitor (UptimeRobot, 5-minute interval) is the more punctual one, and Render's
-# $7/mo Starter plan removes the sleep entirely.
+# Note GitHub may run scheduled jobs late under load. render-schedule.yml
+# re-enables this workflow daily so the 60-day inactivity rule never turns it off.
 
 name: Keep site warm
 
 on:
   schedule:
-    - cron: '*/10 0-17 * * *'   # every 10 minutes, 00:00–17:59 UTC
+    - cron: '10-59/10 0 * * *'  # 00:10–00:50 UTC
+    - cron: '*/10 1-16 * * *'   # 01:00–16:50 UTC
+    - cron: '0-20/10 17 * * *'  # 17:00–17:20 UTC (suspend is at 17:30)
   workflow_dispatch:             # lets you trigger a wake-up by hand
 
 jobs:
