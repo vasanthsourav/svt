@@ -65,12 +65,16 @@ jobs:
             -H "Authorization: Bearer $RENDER_API_KEY" \
             "https://api.render.com/v1/services/$RENDER_SERVICE_ID/${{ steps.pick.outputs.action }}" || echo 000)
           echo "HTTP $code"; cat /tmp/body.txt || true; echo
-          # 2xx = done. Render answers 4xx when it is already in that state, which is fine.
-          case "$code" in
-            2*) ;;
-            409) echo "Already ${{ steps.pick.outputs.action }}d." ;;
-            *) echo "::error::Render API returned $code"; exit 1 ;;
-          esac
+          # Resuming a service that is already running answers 400 "only services
+          # suspended by a user can be resumed" — fine, the wake step below still
+          # checks the site really answers.
+          if [ "${code#2}" != "$code" ]; then
+            exit 0
+          elif [ "$code" = "400" ] && grep -q 'only services suspended by a user' /tmp/body.txt; then
+            echo "Already running."
+          else
+            echo "::error::Render API returned $code"; exit 1
+          fi
 
       - name: Wake the site after resuming
         if: steps.pick.outputs.action == 'resume'
